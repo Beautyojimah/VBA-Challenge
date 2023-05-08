@@ -1,0 +1,147 @@
+Sub ProcessTickers()
+    Dim uniqueTickers As Collection
+    Dim cell As Range
+    Dim ws As Worksheet
+    Dim isUnique As Boolean
+    Dim ticker As Variant
+    Dim outputRow As Long
+    Dim lastRow As Long, i As Long
+    Dim currentTicker As String, previousTicker As String
+    Dim openingPrice As Double, closingPrice As Double
+    Dim yearlyChange As Double, percentageChange As Double
+    Dim totalVolume As Double
+    Dim maxPercentIncreaseTicker As String, maxPercentDecreaseTicker As String, maxVolumeTicker As String
+    Dim maxPercentIncrease As Double, maxPercentDecrease As Double, maxVolume As Double
+    
+    ' Initialize variables for summary table
+    maxPercentIncrease = 0
+    maxPercentDecrease = 0
+    maxVolume = 0
+    
+    ' Iterate through each worksheet in the workbook
+    For Each ws In ThisWorkbook.Worksheets
+
+        ' Part 1: Print unique ticker symbols
+        Set uniqueTickers = New Collection
+
+        On Error Resume Next
+        For Each cell In ws.Range("A2:A" & ws.Cells(ws.Rows.Count, 1).End(xlUp).row)
+            If Len(cell.Value) > 0 Then
+                isUnique = False
+                For Each ticker In uniqueTickers
+                    If cell.Value = ticker Then
+                        isUnique = True
+                        Exit For
+                    End If
+                Next ticker
+
+                If Not isUnique Then
+                    uniqueTickers.Add cell.Value
+                End If
+            End If
+        Next cell
+        On Error GoTo 0
+
+        ' Clear the previous content in column I before writing new data
+        ws.Range("I:L").ClearContents
+
+        ' Add headings to the columns
+        ws.Cells(1, 9).Value = "Ticker"
+        ws.Cells(1, 10).Value = "Yearly Change"
+        ws.Cells(1, 11).Value = "Percentage Change"
+        ws.Cells(1, 12).Value = "Total Volume"
+
+        outputRow = 2
+        For Each ticker In uniqueTickers
+            ws.Cells(outputRow, 9).Value = ticker ' Output the unique ticker to Column I
+            outputRow = outputRow + 1
+        Next ticker
+
+        ' Part 2: Calculate yearly price change, percentage change, and total stock volume
+        lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).row
+        outputRow = 2
+        openingPrice = ws.Cells(2, 3).Value
+        totalVolume = 0
+        previousTicker = ws.Cells(2, 1).Value
+
+        For i = 2 To lastRow + 1
+            currentTicker = ws.Cells(i, 1).Value
+
+            If i = lastRow + 1 Or currentTicker <> previousTicker Then
+                ' Calculate yearly change
+                closingPrice = ws.Cells(i - 1, 6).Value
+                yearlyChange = closingPrice - openingPrice
+
+                ' Calculate percentage change
+                If openingPrice <> 0 Then
+                    percentageChange = (yearlyChange / openingPrice)
+                Else
+                    percentageChange = 0
+                End If
+
+                ' Write the yearly change, percentage change, and total volume
+                ws.Cells(outputRow, 10).Value = yearlyChange
+                ws.Cells(outputRow, 11).Value = Format(percentageChange, "0.00%")
+                ws.Cells(outputRow, 12).Value = totalVolume
+
+                ' Apply conditional formatting to yearly change and percentage change columns
+                    Dim currentCell As Range
+                    Set currentCell = ws.Cells(outputRow, 10)
+                    If currentCell.Value < 0 Then
+                    currentCell.Interior.Color = RGB(255, 0, 0)
+                    Else
+                    currentCell.Interior.Color = RGB(0, 255, 0)
+                    End If
+        
+                    Set currentCell = ws.Cells(outputRow, 11)
+                    If currentCell.Value < 0 Then
+                    currentCell.Interior.Color = RGB(255, 0, 0)
+                    Else
+                    currentCell.Interior.Color = RGB(0, 255, 0)
+                    End If
+
+                    ' Update the summary table if necessary
+                    If percentageChange > maxPercentIncrease Then
+                    maxPercentIncrease = percentageChange
+                    maxPercentIncreaseTicker = previousTicker
+                    End If
+            
+                    If percentageChange < maxPercentDecrease Then
+                    maxPercentDecrease = percentageChange
+                    maxPercentDecreaseTicker = previousTicker
+                    End If
+            
+                    If totalVolume > maxVolume Then
+                    maxVolume = totalVolume
+                    maxVolumeTicker = previousTicker
+                    End If
+
+                    ' Reset the values for the new ticker
+                    openingPrice = ws.Cells(i, 3).Value
+                    totalVolume = 0
+                    outputRow = outputRow + 1
+            End If
+
+            ' Update the total volume
+            totalVolume = totalVolume + ws.Cells(i, 7).Value
+
+            ' Update the previous ticker
+            previousTicker = currentTicker
+
+        Next i
+
+        ' Add the summary table
+        ws.Range("O2").Value = "Greatest % Increase"
+        ws.Range("O3").Value = "Greatest % Decrease"
+        ws.Range("O4").Value = "Greatest Total Volume"
+        ws.Range("P1").Value = "Ticker"
+        ws.Range("Q1").Value = "Value"
+        ws.Range("P2").Value = maxPercentIncreaseTicker
+        ws.Range("P3").Value = maxPercentDecreaseTicker
+        ws.Range("P4").Value = maxVolumeTicker
+        ws.Range("Q2").Value = Format(maxPercentIncrease, "0.00%")
+        ws.Range("Q3").Value = Format(maxPercentDecrease, "0.00%")
+        ws.Range("Q4").Value = maxVolume
+
+    Next ws ' Move to the next worksheet
+End Sub
